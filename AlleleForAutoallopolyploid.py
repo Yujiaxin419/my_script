@@ -1,4 +1,3 @@
-#import numpy as np
 import pandas as pd
 import os
 import time
@@ -6,8 +5,6 @@ import re
 import pysam
 import networkx as nx
 import argparse
-import collections
-#import backbone as bb
 import sys
 
 
