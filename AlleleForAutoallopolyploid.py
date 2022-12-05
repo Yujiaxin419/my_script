@@ -22,7 +22,6 @@ import sys
 ### 2. 距离： 未比对上的基因比对回自身基因组，比对区间和骨架上的基因区间存在覆盖的认为可能是等位基因
 ### 3. 共线性： 和骨架上的基因组存在共线性的可能是等位基因
 
-## 最后有时间的话还可以生成一个homolog exchange的表
 
 def time_print(info):
 	print("\033[32m%s\033[0m %s"%(time.strftime('[%H:%M:%S]',time.localtime(time.time())), info))
@@ -138,8 +137,7 @@ def check_overlap(qryName, refName, gene_db, mapping_db):
                 ovlRatio = float(min(qr[2], rr[2])-max(qr[1], rr[1]))/float(min((qr[2]-qr[1]), (rr[2]-rr[1])))
                 overlap_flag = True if ovlRatio > 0.5 else False
     return overlap_flag  
-    # return overlap_flag True or FALse
-    #sub_compare_pairs = [set(c) for c in combinations(Anchor, 2)]
+
 
 def run_daimond(ref, qry, hapnum, thread, outputFile):
     dbName = os.path.splitext(ref)[0]
@@ -216,9 +214,6 @@ def read_synteny(synteny, genedb):
                 else:
                     syntenyDic[block_name][0].append(geneA)
                     syntenyDic[block_name][1].append(geneB)
-    #firstB = list(syntenyDic.keys())[0]
-    #print(syntenyDic[firstB])
-    #print(syntenyDic)
     with open('synBlock.txt', 'w') as fin:
         for block in syntenyDic:
             fin.write("{}\t{}\t{}\n".format(block, ','.join(syntenyDic[block][0]), ','.join(syntenyDic[block][1])))
@@ -242,16 +237,7 @@ def read_synteny(synteny, genedb):
         gbs, gbe = geneLstb.index(gbLst[0]), geneLstb.index(gbLst[-1])
         gas, gae = (gae, gas) if gas > gae else (gas, gae)
         gbs, gbe = (gbe, gbs) if gbs > gbe else (gbs, gbe)
-        #print(gas, gae)
-        #sys.exit()
-    #    try:
         gaLst = geneLsta[gas: gae+1]
-   #     except:
-   #         print(gas)
-   #         print(gae)
-   #         print(type(gas))
-   #         print(type(gae))
-   #         sys.exit()
         gbLst = geneLstb[gbs: gbe+1]
         for gLst in (gaLst, gbLst):
             for g in gLst:
@@ -259,9 +245,6 @@ def read_synteny(synteny, genedb):
                     transSynDict[g] = [block]
                 else:
                     transSynDict[g].append(block)
-        #print(transSynDict)
-   # print(len(transSynDict.keys()))
-   # sys.exit()
     return transSynDict
     # return syntenyDic; syntenyDic[gene] = [block1, block2....]
 
@@ -308,7 +291,6 @@ def build_simiGene_network(filtered_svdf):
         degreLst.sort(reverse=True, key=lambda x: x[1])
         ref = degreLst[0][0]
         ### 因为构图的时候是采用贪婪构图，只要任意一条有相似性就会被拉进来，还要考虑一下这样合不合理？
-        #ref = nodeSet[0]
         for node in nodeSet:
             new_svdf.loc[len(new_svdf.index)] = [node, ref, None, None]
     return new_svdf
@@ -349,8 +331,6 @@ def back_bone(config_dic):
     ## 筛选高相似度的基因对
     filter_result = self_mono_blast_df[ (self_mono_blast_df['ident']> identityCutoff) & (self_mono_blast_df['cov']>coverageCutoff)]
     filter_result = filter_result[['ref', 'qry', 'ident', 'cov']]
-#    print(filter_result)
-#    sys.exit()
     ## 添加坐标覆盖信息
     monoGeneDB = read_gff3(config_dic['monoGff3'])
     filter_result['overlap'] = filter_result.apply(lambda x: check_overlap(x['qry'], x['ref'], monoGeneDB, mapping_region), axis=1)
@@ -362,7 +342,6 @@ def back_bone(config_dic):
     filter_result['synteny'] = filter_result.apply(lambda x: check_synteny(x['qry'], x['ref'], syntenyDic), axis=1)
     ## 过滤
     ### 只保留具有共线性和位置覆盖以及高相似度的基因对作为骨架
- #   backbone_result
     backbone_result = filter_result[filter_result['overlap'] & filter_result['synteny']]
     filter_result.to_csv('unFilterBackbone.txt',  header=True, sep="\t")
     backbone_result.to_csv('backbone_result.txt',  header=True, sep="\t")
@@ -381,8 +360,6 @@ def rescue_gene(config_dic, backbone_result, syntenyDic):
     for g in totalGene:
         if g not in anchorGene:
             unAnchor.append(g)
-    #print(unAnchor)
-   # sys.exit()
     selfPep = pysam.FastaFile(config_dic['selfPep'])
     with open('unAnchor.pep','w') as fout1:
         for g in unAnchor:
@@ -427,12 +404,8 @@ def rescue_gene(config_dic, backbone_result, syntenyDic):
     filter_result = filter_result[['ref', 'qry', 'ident', 'cov']]
     filter_result.to_csv("unanchor-self.df", header=True, sep="\t")
     ## 'ref' 如果在 backbone 的 'qry' 中 那就把他拉回去
-    #backBoneQryLst = backbone_result['qry']
-    #filter_result['check_in_backbone'] = filter_result.apply(lambda x: True if x['ref'] in backBoneQryLst else False, axis=1)
-    #rescuedBackboneGene = filter_result[filter_result['check_in_backbone']]
     rescuedBackboneGene = filter_result[filter_result.ref.isin(backbone_result['qry'])]
     ## ‘ref’ 如果不在backbone 的 ‘qry’ 中，那就开始聚类，重构df
-    #rescuedSVGene = filter_result[~filter_result['check_in_backbone']]
     rescuedSVGene = filter_result[~filter_result.ref.isin(backbone_result['qry'])]
     rebuildRescuedSVGene = build_simiGene_network(rescuedSVGene)
     ## 检查通过相似性rescue到的基因的覆盖度
@@ -458,24 +431,12 @@ def read_subgenome(sgFile):
     #print(sgFile)
     with open(sgFile, 'r') as IN:
         for line in IN:
-            #print(line)
-            #if line.startswith(''):
-            #    continue
+
             tmpLst = line.split('\t')
             sg, chrLst = tmpLst[0], tmpLst[1].split(',')
-     #       print(sg, chrLst)
             test_chr = chrLst[0][-1]
-   #         if test_chr not in [chr(i) for i in range(ord('A'),ord('Z')+1)]:
-   #             time_print("The haplotype chromosome name must be end with A-Z! please check! The pipeline exit!")
-   #             sys.exit()
-        #    if monochr not in mono2sg2chrDic:
-        #        mono2sg2chrDic[monochr]
-        #    else:
-        #        mono2sg2chrDic[monochr][sg] = chrLst
             for chrn in chrLst:
                 chr2sgDic[chrn] = sg
-    #print(chr2sgDic)
-    #sys.exit()
     return chr2sgDic
     # return mono2sg2chrDic[monochr][sg] = chrLst
 
@@ -493,11 +454,6 @@ def rebuild_allele_table(finalAlleleTable, config_dic):
     outdb = []
     for i in range(len(sgdb)):
         outdb.append([])
-    #outdic = dict(zip(sgdb,outdb))
-
-
-
-    #monochrLst = list(chr2sgDic.keys())
     flipAlleleDict = {}
     for row in finalAlleleTable.itertuples():
         refG, qryG = getattr(row, 'ref'), getattr(row, 'qry')
@@ -511,8 +467,6 @@ def rebuild_allele_table(finalAlleleTable, config_dic):
             flipAlleleDict[refG] = {}
             for sg in sgdb:
                 flipAlleleDict[refG][sg] = {} 
-        #if qrysg not in flipAlleleDict[refG]:
-        #    flipAlleleDict[refG] = dict(zip(sgdb,outdb))
         qryC = hapGeneDB[qryG][0][0]
         if qryC not in flipAlleleDict[refG][qrysg]:
             flipAlleleDict[refG][qrysg][qryC] = []
@@ -557,15 +511,6 @@ def rebuild_allele_table(finalAlleleTable, config_dic):
     ### 开始输出了
     with open("Allele.finnal.table",'w') as fout:
         ## 先确定亚基因组顺序
-        #subgenome = []
-        #for sg in chr2sgDic.values():
-        #    if sg in subgenome:
-        #        pass
-        #    else:
-        #        subgenome.append(sg)
-        # sgdb
-        #subgenome = map(str, subgenome)
-        #flipAlleleDict[refG][sg][chrn]
         header = "#REF\tCHR\tPOS\t{}\n".format('\t'.join(sgdb))
         fout.write(header)
         for refC in tmpgeneDic:
@@ -600,8 +545,7 @@ def pipe(config, make_config_flag):
     with open('new_syntenyDic.txt', 'w') as fout:
         for i in syntenyDic:
             fout.write("{}\t{}\n".format(i,",".join(syntenyDic[i])))
-   # sys.exit()
-#    backbone_result = pd.read_csv("backbone_result.txt", sep="\t")
+    #backbone_result = pd.read_csv("backbone_result.txt", sep="\t")
     #with open('new_syntenyDic.txt', 'r') as fin:
     #    syntenyDic = {}
     #    for line in fin:
@@ -609,7 +553,7 @@ def pipe(config, make_config_flag):
     #        gene, blockN = tmppLst
     #        blockN = blockN.split(',')
     #        syntenyDic[gene] = blockN
-    #time_print("Start to rescue unanchor genes.")
+    time_print("Start to rescue unanchor genes.")
     finnalAllele = rescue_gene(config_dic, backbone_result, syntenyDic)
     time_print("Start to rebuild allele table and output.")
     #final_rescuedBackboneGene = pd.read_csv("final_rescuedBackboneGene.txt", sep="\t")
